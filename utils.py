@@ -379,57 +379,86 @@ def process_images(hypes, savename, image_orig, detected, var, gt=None, out_res=
                              dim=0).detach().cpu().numpy()  # take the epistemic uncertainty of corrosion as standard dev of stack
 
         ali_corr = (torch.mean(var, dim=0)).cpu().numpy()
-        image_orig.putalpha(255)
 
-        cmap = plt.get_cmap('cool_r')
-        colors = cmap(confidence_mean)
-        colors[:, :, -1] = thresholded
+        # image_orig.putalpha(255)
 
-        shrinkfactor = 0.8
-        fig, ax = plt.subplots()
-        ax.imshow(image_orig, extent=extent)
-        ax.imshow(colors, extent=extent)
-        ax.set_title('detected')
-        ax.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, labelleft=False, left=False)
-        fig.savefig(str(savename + '_detected.png'))
-        plt.close(fig)
+        # cmap = plt.get_cmap('cool_r')
+        # colors = cmap(confidence_mean)
+        # colors[:, :, -1] = thresholded
 
-        fig, ax = plt.subplots()
-        corrTicks = [epi_corr.min(), epi_corr.max()]
-        eps_corr = ax.imshow(epi_corr, extent=extent, cmap='plasma')
-        ax.set_title('corrosion epistemic uncertainty')
-        cb2 = plt.colorbar(eps_corr, ax=ax, orientation='vertical', shrink=shrinkfactor, pad=0.01,
-                           label='uncertainty' , ticks=corrTicks)
-        cb2.set_label('epistemic uncertainty', labelpad=-2)
-        ax.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, labelleft=False, left=False)
-        fig.savefig(str(savename + '_corr_epistemic.png'))
-        plt.close(fig)
+        # shrinkfactor = 0.8
+        # fig, ax = plt.subplots()
+        # ax.imshow(image_orig, extent=extent)
+        # ax.imshow(colors, extent=extent)
+        # ax.set_title('detected')
+        # ax.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, labelleft=False, left=False)
+        # fig.savefig(str(savename + '_detected.png'))
+        # plt.close(fig)
 
-        ali_corrTicks = [ali_corr.min(), ali_corr.max()]
-        fig, ax = plt.subplots()
-        als_corr = ax.imshow(ali_corr, extent=extent, cmap='plasma')
-        ax.set_title('aleatoric uncertainty')
-        cb3 = plt.colorbar(als_corr, ax=ax, orientation='vertical', shrink=shrinkfactor, pad=0.01,
-            ticks=ali_corrTicks)
-        cb3.set_label('uncertainty', labelpad=-2)
-        ax.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, labelleft=False, left=False)
-        fig.savefig(str(savename + '_aleatoric.png'))
-        plt.close(fig)
+        width, height = image_orig.size
 
-        #save detected figure
-        colormapper = ListedColormap(['black', 'cyan'])
+        # Pastikan gambar memiliki alpha channel
+        image_orig = image_orig.convert('RGBA')
 
-        corrosion = mpatches.Patch(color='cyan', label='corrosion', ec='black')
-        background = mpatches.Patch(color='black', label='background')
-        fig, ax = plt.subplots()
-        ax.imshow(thresholded, cmap=colormapper, extent=extent)
-        ax.set_title('prediction map')
-        ax.set_xticks([-1])
-        ax.set_yticks([-1])
-        ax.legend(handles=[background, corrosion], loc='lower center', bbox_to_anchor=(0.5, -0.1),
-                  fontsize=8, ncol=2, handlelength=1, columnspacing=1.)
-        fig.savefig(str(savename + '_detection.png'))
-        plt.close(fig)
+        # Konversi thresholded (mask boolean atau 0-1 float) ke uint8 mask
+        mask = (thresholded.cpu().numpy() * 255).astype(np.uint8)
+
+        # --- Resize mask jika shape tidak sama ---
+        if mask.shape != (height, width):
+            from PIL import Image
+            mask_img = Image.fromarray(mask)
+            mask_img = mask_img.resize((width, height), resample=Image.NEAREST)
+            mask = np.array(mask_img)
+
+        # Ubah ke format RGBA overlay: merah dengan alpha 128 jika terdeteksi
+        red_pixels = np.zeros((height, width, 4), dtype=np.uint8)
+        red_pixels[mask > 0] = [255, 0, 0, 128]  # Merah, 50% opacity
+
+        # Buat overlay image dari numpy
+        red_overlay = Image.fromarray(red_pixels, mode='RGBA')
+
+        # Gabungkan overlay ke image original
+        result = Image.alpha_composite(image_orig, red_overlay)
+
+        # Simpan gambar hasil
+        result.save(str(savename + '_detected.png'))
+
+        # fig, ax = plt.subplots()
+        # corrTicks = [epi_corr.min(), epi_corr.max()]
+        # eps_corr = ax.imshow(epi_corr, extent=extent, cmap='plasma')
+        # ax.set_title('corrosion epistemic uncertainty')
+        # cb2 = plt.colorbar(eps_corr, ax=ax, orientation='vertical', shrink=shrinkfactor, pad=0.01,
+        #                    label='uncertainty' , ticks=corrTicks)
+        # cb2.set_label('epistemic uncertainty', labelpad=-2)
+        # ax.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, labelleft=False, left=False)
+        # fig.savefig(str(savename + '_corr_epistemic.png'))
+        # plt.close(fig)
+
+        # ali_corrTicks = [ali_corr.min(), ali_corr.max()]
+        # fig, ax = plt.subplots()
+        # als_corr = ax.imshow(ali_corr, extent=extent, cmap='plasma')
+        # ax.set_title('aleatoric uncertainty')
+        # cb3 = plt.colorbar(als_corr, ax=ax, orientation='vertical', shrink=shrinkfactor, pad=0.01,
+        #     ticks=ali_corrTicks)
+        # cb3.set_label('uncertainty', labelpad=-2)
+        # ax.tick_params(axis='both', which='both', bottom=False, top=False, labelbottom=False, labelleft=False, left=False)
+        # fig.savefig(str(savename + '_aleatoric.png'))
+        # plt.close(fig)
+
+        # #save detected figure
+        # colormapper = ListedColormap(['black', 'cyan'])
+
+        # corrosion = mpatches.Patch(color='cyan', label='corrosion', ec='black')
+        # background = mpatches.Patch(color='black', label='background')
+        # fig, ax = plt.subplots()
+        # ax.imshow(thresholded, cmap=colormapper, extent=extent)
+        # ax.set_title('prediction map')
+        # ax.set_xticks([-1])
+        # ax.set_yticks([-1])
+        # ax.legend(handles=[background, corrosion], loc='lower center', bbox_to_anchor=(0.5, -0.1),
+        #           fontsize=8, ncol=2, handlelength=1, columnspacing=1.)
+        # fig.savefig(str(savename + '_detection.png'))
+        # plt.close(fig)
 
     return F_score
 

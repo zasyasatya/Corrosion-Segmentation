@@ -6,6 +6,7 @@ import argparse
 import json
 import torch.distributed as dist
 from sys import platform as sys_pf
+import datetime
 if sys_pf == 'darwin':
     import matplotlib
     matplotlib.use("MacOSX")
@@ -142,8 +143,20 @@ if __name__ == '__main__':
         out = normalize_tensor(out)
         var = normalize_tensor(var) * (varmax - varmin)
 
+        filename = os.path.splitext(os.path.basename(args.image))[0]  # contoh: 'frame_0609_00001'
+
+        # Jika format nama file: frame_<video_name>_<frameid>
+        if filename.startswith("frame_"):
+            video_name = filename.split("_")[1]  # hasil: '0609'
+        else:
+            video_name = filename  # fallback: pakai nama file
+        
+        project_name = video_name + "_res" + str(input_res[0]) + "_" + str(input_res[1]) 
+        timestamp = datetime.datetime.now().strftime("%Y%m%d")
+
         savename = os.path.join(os.getcwd(), 'figures',
-                                str(hypes['arch']['config']), str(args.thresh),
+                                str(hypes['arch']['config']), 
+                                f"{project_name}_{timestamp}_{str(args.thresh)}",
                                 str(bayesMethod + '_' + os.path.splitext(os.path.basename(args.image))[0]))
 
         os.makedirs(os.path.dirname(savename), mode=0o755, exist_ok=True)

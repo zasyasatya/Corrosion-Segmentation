@@ -5,9 +5,9 @@ import subprocess
 
 MODEL_PATH = "pretrained/HRNet_var/21-12-28[17.09]"
 N_MC = 24
-OUT_RES = [512, 512]
+OUT_RES = [1920, 1080]
 THRESH = 0.75
-input_path = "testing_images/"  # bisa folder gambar atau file video
+input_path = "testing_videos/0609.mp4"  # bisa folder gambar atau file video
 
 def run_infer(image_path):
     cmd = [
@@ -21,13 +21,53 @@ def run_infer(image_path):
     print("Running:", " ".join(cmd))
     subprocess.run(cmd, check=True)
 
+# def process_image_folder(folder):
+#     images = sorted(glob.glob(folder))
+#     print(images)
+#     # Ambil hanya frame kelipatan 5 (misal: frame_00005.jpg, dst)
+#     # selected = [img for img in images if int(os.path.splitext(os.path.basename(img))[0].split('_')[-1]) % 5 == 0]
+#     for img in images:
+#         run_infer(img)
+
 def process_image_folder(folder):
-    images = sorted(glob.glob(folder))
-    print(images)
-    # Ambil hanya frame kelipatan 5 (misal: frame_00005.jpg, dst)
-    # selected = [img for img in images if int(os.path.splitext(os.path.basename(img))[0].split('_')[-1]) % 5 == 0]
+    # Gabungkan semua ekstensi gambar umum
+    image_extensions = ['*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tif', '*.tiff', '*.webp']
+    
+    # Buat list semua gambar dengan berbagai ekstensi
+    images = []
+    for ext in image_extensions:
+        images.extend(glob.glob(os.path.join(folder, ext)))
+    
+    # Urutkan hasil
+    images = sorted(images)
+
+    print(images)  # Debug: print semua path gambar
+    
+    # Jalankan inference untuk semua gambar
     for img in images:
         run_infer(img)
+
+# def process_video(video_path, output_folder):
+#     os.makedirs(output_folder, exist_ok=True)
+#     cap = cv2.VideoCapture(video_path)
+#     fps = cap.get(cv2.CAP_PROP_FPS)
+#     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+#     print(f"Video FPS: {fps}, Total frames: {frame_count}")
+#     frame_idx = 0
+#     saved = 0
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             break
+#         # Ambil 5 frame per detik, hanya frame ke-0, 5, 10, dst per detik
+#         if int(frame_idx % fps) % 5 == 0:
+#             out_path = os.path.join(output_folder, f"frame_{frame_idx:05d}.jpg")
+#             cv2.imwrite(out_path, frame)
+#             run_infer(out_path)
+#             saved += 1
+#         frame_idx += 1
+#     cap.release()
+#     print(f"Total frames processed: {saved}")
 
 def process_video(video_path, output_folder):
     os.makedirs(output_folder, exist_ok=True)
@@ -37,13 +77,17 @@ def process_video(video_path, output_folder):
     print(f"Video FPS: {fps}, Total frames: {frame_count}")
     frame_idx = 0
     saved = 0
+    # Ambil nama file video tanpa ekstensi
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
     while True:
         ret, frame = cap.read()
         if not ret:
             break
         # Ambil 5 frame per detik, hanya frame ke-0, 5, 10, dst per detik
         if int(frame_idx % fps) % 5 == 0:
-            out_path = os.path.join(output_folder, f"frame_{frame_idx:05d}.jpg")
+            out_path = os.path.join(
+                output_folder, f"frame_{video_name}_{saved+1:05d}.jpg"
+            )
             cv2.imwrite(out_path, frame)
             run_infer(out_path)
             saved += 1
